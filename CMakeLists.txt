@@ -87,6 +87,7 @@ add_library(engine-sim STATIC
     src/vehicle.cpp
     src/vehicle_drag_constraint.cpp
     src/vtec_valvetrain.cpp
+    src/yds_write_windows_audio_wave_file.cpp
 
     # Include files
     include/audio_buffer.h
@@ -132,6 +133,7 @@ add_library(engine-sim STATIC
     include/vehicle.h
     include/vehicle_drag_constraint.h
     include/vtec_valvetrain.h
+    include/yds_write_windows_audio_wave_file.h
 )
 
 target_link_libraries(engine-sim

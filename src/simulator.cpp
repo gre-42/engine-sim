@@ -1,4 +1,7 @@
 #include "../include/simulator.h"
+#include <iostream>
+#define _USE_MATH_DEFINES
+#include <math.h>
 
 Simulator::Simulator() {
     m_engine = nullptr;
@@ -18,6 +21,13 @@ Simulator::Simulator() {
     m_filteredEngineSpeed = 0.0;
     m_dynoTorqueSamples = nullptr;
     m_lastDynoTorqueSample = 0;
+
+    m_simulationTime = 0.0;
+    m_nrotations = 0;
+    m_newRotationAcknowledged = false;
+    if (const char* labelsFilename = getenv("LABELS_FILE"); labelsFilename != nullptr) {
+        m_log.open(labelsFilename);
+    }
 }
 
 Simulator::~Simulator() {
@@ -148,7 +158,31 @@ bool Simulator::simulateStep() {
 
     writeToSynthesizer();
 
+    double newCycleAngle = m_engine->getOutputCrankshaft()->getCycleAngle();
+    bool newRotationStarted;
+    if (newCycleAngle < 0.1) {
+        newRotationStarted = !m_newRotationAcknowledged;
+    } else {
+        newRotationStarted = false;
+        m_newRotationAcknowledged = false;
+    }
+    if (newRotationStarted) {
+        ++m_nrotations;
+        m_newRotationAcknowledged = true;
+    }
+    if (m_log.is_open()) {
+        if (newRotationStarted)
+        {
+            // m_log_ << m_simulationTime << ' ' << m_engine->getThrottle() << ' ' << newCycleAngle << '\n';
+            m_log << m_simulationTime << "\t" << m_simulationTime << "\t" << m_engine->getThrottlePlateAngle() * 180.0 / M_PI << '\n';
+        }
+        if ((m_currentIteration % 1000) == 0) {
+            m_log.flush();
+        }
+    }
+
     ++m_currentIteration;
+    m_simulationTime += timestep;
     return true;
 }
 
@@ -174,6 +208,10 @@ void Simulator::startAudioRenderingThread() {
 
 void Simulator::endAudioRenderingThread() {
     m_synthesizer.endAudioRenderingThread();
+    {
+        m_log << m_simulationTime << "\t" << m_simulationTime << "\t" << "End" << '\n';
+        m_log.flush();
+    }
 }
 
 double Simulator::getSynthesizerInputLatencyTarget() const {

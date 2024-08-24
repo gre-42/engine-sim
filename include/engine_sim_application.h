@@ -149,6 +149,9 @@ class EngineSimApplication {
         InfoCluster *m_infoCluster;
         SimulationObject::ViewParameters m_viewParameters;
 
+        std::vector<int16_t> m_waveData;
+        std::string m_waveFilename;
+
         bool m_paused;
 
     protected:

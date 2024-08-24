@@ -13,6 +13,7 @@
 #include "../include/exhaust_system.h"
 #include "../include/feedback_comb_filter.h"
 #include "../include/utilities.h"
+#include "../include/yds_write_windows_audio_wave_file.h"
 
 #include "../scripting/include/compiler.h"
 
@@ -82,6 +83,18 @@ EngineSimApplication::EngineSimApplication() {
     m_viewParameters.Layer1 = 0;
 
     m_displayAngle = 0.0f;
+
+    if (const char* waveFilename = getenv("WAVE_FILE"); waveFilename != nullptr) {
+        m_waveFilename = waveFilename;
+    }
+    if (!m_waveFilename.empty()) {
+        const char* waveFileMinutes = getenv("WAVE_FILE_MAX_MINUTES");
+        if (waveFileMinutes == nullptr) {
+            std::cerr << "\"WAVE_FILE\" requires \"WAVE_FILE_MAX_MINUTES\"" << std::endl;
+            std::exit(1);
+        }
+        m_waveData.reserve(44100 * 60 * std::atoi(waveFileMinutes));
+    }
 }
 
 EngineSimApplication::~EngineSimApplication() {
@@ -284,6 +297,12 @@ void EngineSimApplication::process(float frame_dt) {
         m_audioBuffer.writeSample(sample, m_audioBuffer.m_writePointer, (int)i);
 
         m_oscillatorSampleOffset = (m_oscillatorSampleOffset + 1) % (44100 / 10);
+
+        if (!m_waveFilename.empty()) {
+            if (m_waveData.size() < m_waveData.capacity()) {
+                m_waveData.push_back(sample);
+            }
+        }
     }
 
     delete[] samples;
@@ -432,6 +451,10 @@ void EngineSimApplication::destroy() {
 
     m_simulator->destroy();
     m_audioBuffer.destroy();
+
+    if (!m_waveFilename.empty()) {
+        ysWriteWindowsAudioWaveFile(m_waveFilename, m_waveData);
+    }
 }
 
 void EngineSimApplication::loadEngine(
@@ -790,12 +813,33 @@ void EngineSimApplication::processEngineInput() {
     else if (fineControlMode && !fineControlInUse) {
         m_targetSpeedSetting = clamp(m_targetSpeedSetting + mouseWheelDelta * 0.0001);
     }
+    if (const char* niters = getenv("PERIODS_CONSTANT"); niters != nullptr) {
+        int periodsConstant = std::atoi(niters);
+        if (periodsConstant > 0) {
+            int period = m_simulator->nrotations() / periodsConstant;
+            double base_speed = 0.002;
+            if (false) {
+                m_targetSpeedSetting = clamp(base_speed * max(1, period));
+            } else {
+                if (period == 0) {
+                    m_targetSpeedSetting = base_speed;
+                } else {
+                    double increase_percentage = 20.0 / 100.0;
+                    m_targetSpeedSetting = base_speed * std::pow(1 + increase_percentage, period - 1);
+                }
+            }
+            if (period == 1) {
+                std::cerr << "Period=1" << std::endl;
+            }
+        }
+    }
 
     if (prevTargetThrottle != m_targetSpeedSetting) {
         m_infoCluster->setLogMessage("Speed control set to " + std::to_string(m_targetSpeedSetting));
     }
 
-    m_speedSetting = m_targetSpeedSetting * 0.5 + 0.5 * m_speedSetting;
+    // m_speedSetting = m_targetSpeedSetting * 0.5 + 0.5 * m_speedSetting;
+    m_speedSetting = m_targetSpeedSetting;
 
     m_iceEngine->setSpeedControl(m_speedSetting);
     if (m_engine.ProcessKeyDown(ysKey::Code::M)) {

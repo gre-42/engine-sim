@@ -12,6 +12,7 @@
 #include "delay_filter.h"
 #include "engine.h"
 
+#include <fstream>
 #include <chrono>
 
 class Simulator {
@@ -76,6 +77,7 @@ public:
     virtual double getAverageOutputSignal() const;
 
     double filteredEngineSpeed() const { return m_filteredEngineSpeed; }
+    int nrotations() const { return m_nrotations; }
 
     Dynamometer m_dyno;
     StarterMotor m_starterMotor;
@@ -117,6 +119,11 @@ private:
     double m_filteredEngineSpeed;
 
     int m_steps;
+
+    double m_simulationTime;
+    int m_nrotations;
+    std::ofstream m_log;
+    bool m_newRotationAcknowledged;
 };
 
 #endif /* ATG_ENGINE_SIM_SIMULATOR_H */
